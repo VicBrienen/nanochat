@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from helper import RMSNorm
 
 class CausalSelfAttention(nn.Module):
     def __init__(self, embedding_dim, num_heads):
@@ -46,10 +47,10 @@ class Block(nn.Module):
     def __init__(self, embedding_dim, num_heads, mlp_ratio):
         super().__init__()
 
-        self.norm_1 = nn.LayerNorm(embedding_dim)
+        self.norm_1 = RMSNorm(embedding_dim)
         self.attention = CausalSelfAttention(embedding_dim, num_heads)
 
-        self.norm_2 = nn.LayerNorm(embedding_dim)
+        self.norm_2 = RMSNorm(embedding_dim)
         self.mlp = MLP(embedding_dim, mlp_ratio)
 
     def forward(self, x):
@@ -64,7 +65,7 @@ class Transformer(nn.Module):
 
         self.blocks = nn.ModuleList([Block(embedding_dim, num_heads, mlp_ratio) for _ in range(num_layers)])
 
-        self.norm = nn.LayerNorm(embedding_dim) # final normalization before head
+        self.norm = RMSNorm(embedding_dim) # final normalization before head
 
         # shared weights between token embeddings and output projection
         self.output_projection = nn.Linear(embedding_dim, vocab_size, bias=False)
