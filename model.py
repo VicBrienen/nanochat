@@ -55,3 +55,25 @@ class Block(nn.Module):
     def forward(self, x):
         x = x + self.attention(self.norm_1(x))
         return x + self.mlp(self.norm_2(x))
+    
+class Transformer(nn.Module):
+    def __init__(self, vocab_size, embedding_dim, num_heads, mlp_ratio, num_layers):
+        super().__init__()
+
+        self.token_embedding = nn.Embedding(vocab_size, embedding_dim) # optimized version of nn.Linear assuming one hot input
+
+        self.blocks = nn.ModuleList([Block(embedding_dim, num_heads, mlp_ratio) for _ in range(num_layers)])
+
+        self.norm = nn.LayerNorm(embedding_dim) # final normalization before head
+
+        # shared weights between token embeddings and output projection
+        self.output_projection = nn.Linear(embedding_dim, vocab_size, bias=False)
+        self.output_projection.weight = self.token_embedding.weight
+
+    def forward(self, index):
+        x = self.token_embedding(index)
+
+        for block in self.blocks:
+            x = block(x)
+
+        return self.output_projection(self.norm(x))
