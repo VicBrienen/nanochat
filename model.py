@@ -1,0 +1,31 @@
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+class CausalSelfAttention(nn.Module):
+    def __init__(self, embedding_dim, num_heads):
+        super().__init__()
+
+        # num_heads * head_dim = embedding_dim because expansion without nonlinearity is redundant and to keep compute constant across depth
+        self.head_dim = embedding_dim // num_heads 
+        self.num_heads = num_heads
+
+        # no bias to save bandwidth and enable RoPE implementation
+        self.qkv_proj = nn.Linear(embedding_dim, 3*embedding_dim, bias=False) # saves 2 reads of x
+        self.o_proj = nn.Linear(embedding_dim, embedding_dim, bias=False)
+
+    def forward(self, x):
+        batch, token, dim = x.size()
+
+        # decompose qkv projection
+        qkv = self.qkv_proj(x)
+        qkv = qkv.view(batch, token, 3, self.num_heads, self.head_dim) # (batch, token, 3, num_heads, head_dim)
+        qkv = qkv.permute(2, 0, 3, 1, 4) # (3, batch, num_heads, token, head_dim)
+        q, k, v = qkv.unbind(0)
+
+        x = F.scaled_dot_product_attention(q, k, v, is_causal=True)
+
+        # reconstruct for output projection
+        x = x.transpose(1, 2).contiguous().view(batch, token, dim)
+
+        return self.o_proj(x)
