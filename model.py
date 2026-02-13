@@ -41,3 +41,17 @@ class MLP(nn.Module):
     def forward(self, x):
         x = F.gelu(self.expand(x))
         return self.compress(x)
+    
+class Block(nn.Module):
+    def __init__(self, embedding_dim, num_heads, mlp_ratio):
+        super().__init__()
+
+        self.norm_1 = nn.LayerNorm(embedding_dim)
+        self.attention = CausalSelfAttention(embedding_dim, num_heads)
+
+        self.norm_2 = nn.LayerNorm(embedding_dim)
+        self.mlp = MLP(embedding_dim, mlp_ratio)
+
+    def forward(self, x):
+        x = x + self.attention(self.norm_1(x))
+        return x + self.mlp(self.norm_2(x))
